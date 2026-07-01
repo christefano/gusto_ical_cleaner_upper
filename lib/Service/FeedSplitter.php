@@ -29,6 +29,10 @@ class FeedSplitter {
         $response = $client->get($url, [
             'timeout' => 30,
             'headers' => ['Accept' => 'text/calendar, */*'],
+            // Gusto serves the .ics directly. Don't follow redirects, so the
+            // validated gusto.com host can't be bounced to an internal address
+            // (SSRF hardening on top of Nextcloud's local-address blocking).
+            'allow_redirects' => false,
         ]);
 
         /** @var VCalendar $vobj */
@@ -52,11 +56,17 @@ class FeedSplitter {
                 continue;
             }
             $summary = (string)($comp->SUMMARY ?? '');
+            // Group by UID. Synthesize a stable key for the rare UID-less event
+            // so distinct ones can't collapse into a single merged object.
+            $uid = (string)($comp->UID ?? '');
+            if ($uid === '') {
+                $uid = 'no-uid-' . sha1($comp->serialize());
+            }
             if (EventCategory::isHr($summary)) {
-                $otherByUid[(string)$comp->UID][] = $comp;
+                $otherByUid[$uid][] = $comp;
                 $other++;
             } else {
-                $workByUid[(string)$comp->UID][] = $comp;
+                $workByUid[$uid][] = $comp;
                 $work++;
             }
         }

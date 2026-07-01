@@ -62,6 +62,22 @@ class CalendarMirrorTest extends TestCase {
         $this->makeMirror($backend, $config)->sync(7, ['uid-a' => 'DATA-A']);
     }
 
+    public function testEnsureCalendarKeepsUserRenamedDisplayName(): void {
+        $backend = $this->createMock(CalDavBackend::class);
+        $backend->method('getCalendarByUri')->willReturn([
+            'id' => 9,
+            '{DAV:}displayname' => 'My Custom Name',
+        ]);
+        // Existing calendar: never rewrite the name, just return the id.
+        $backend->expects($this->never())->method('updateCalendar');
+        $backend->expects($this->never())->method('createCalendar');
+
+        $config = $this->createMock(IConfig::class);
+        $id = $this->makeMirror($backend, $config)
+            ->ensureCalendar('principals/users/alice', 'gusto-aaaaaaaa-work', 'Feed Name');
+        $this->assertSame(9, $id);
+    }
+
     public function testRemoveStaleCalendarsDeletesOnlyInactiveManagedOnes(): void {
         $backend = $this->createMock(CalDavBackend::class);
         $backend->method('getCalendarsForUser')->willReturn([

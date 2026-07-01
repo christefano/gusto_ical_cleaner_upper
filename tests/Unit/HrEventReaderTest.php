@@ -65,6 +65,8 @@ class HrEventReaderTest extends TestCase {
             'a.ics' => $this->ics('a', 'Jordan T - OOO', $this->today),
             'b.ics' => $this->ics('b', 'Past T - OOO', $this->today->modify('-3 days')),
             'c.ics' => $this->ics('c', 'Span T - OOO', $this->today->modify('-1 day'), $this->today->modify('+1 day')),
+            // Multi-day OOO that already ended (DTEND exclusive) must be excluded.
+            'e.ics' => $this->ics('e', 'Ended T - OOO', $this->today->modify('-3 days'), $this->today->modify('-1 day')),
             'd.ics' => $this->ics('d', "Alex B's birthday", $this->today),
         ];
         $out = $this->reader($objects, [self::HR_CAL])->outToday('frodo');

@@ -16,6 +16,9 @@ use Sabre\VObject\Reader;
  * already wrote.
  */
 class HrEventReader {
+    /** @var array<string,HrEvent[]> per-request cache of parsed HR events, keyed by userId */
+    private array $cache = [];
+
     public function __construct(
         private CalDavBackend $calDavBackend,
         private IDateTimeZone $dateTimeZone,
@@ -29,19 +32,15 @@ class HrEventReader {
      * @return HrEvent[]
      */
     public function outToday(string $userId): array {
-        $tz = $this->dateTimeZone->getTimeZone();
-        $today = new \DateTimeImmutable('today', $tz);
-        $tomorrow = $today->modify('+1 day');
+        $today = new \DateTimeImmutable('today', $this->dateTimeZone->getTimeZone());
 
         $out = [];
         foreach ($this->readHrEvents($userId) as $event) {
             if ($event->category !== EventCategory::OOO) {
                 continue;
             }
-            // All-day OOO spans [start, end); a single-day event ends the next
-            // day. Include it when today falls inside that span.
-            $end = $event->date >= $today ? $event->date->modify('+1 day') : $tomorrow;
-            if ($event->date <= $today && $today < $end) {
+            // All-day OOO spans [start, end). Include it when today falls inside.
+            if ($event->date <= $today && $today < $event->end) {
                 $out[] = $event;
             }
         }
@@ -73,11 +72,16 @@ class HrEventReader {
     }
 
     /**
-     * Parse every event out of the user's managed HR calendars.
+     * Parse every event out of the user's managed HR calendars. Cached per
+     * request so the two widgets don't each re-read the same calendars.
      *
      * @return HrEvent[]
      */
     private function readHrEvents(string $userId): array {
+        if (isset($this->cache[$userId])) {
+            return $this->cache[$userId];
+        }
+
         $tz = $this->dateTimeZone->getTimeZone();
         $principal = 'principals/users/' . $userId;
         $events = [];
@@ -102,6 +106,8 @@ class HrEventReader {
                 }
             }
         }
+
+        $this->cache[$userId] = $events;
         return $events;
     }
 
@@ -111,18 +117,45 @@ class HrEventReader {
         }
         try {
             $vobj = Reader::read($calendarData);
-            $vevent = $vobj->VEVENT;
-            if ($vevent === null) {
+            $vevent = $this->masterEvent($vobj);
+            if ($vevent === null || !isset($vevent->DTSTART)) {
                 return null;
             }
             $summary = (string)($vevent->SUMMARY ?? '');
             // Interpret the (all-day) start as a date in the user's timezone.
-            $dateStr = $vevent->DTSTART->getDateTime()->format('Y-m-d');
-            $date = new \DateTimeImmutable($dateStr, $tz);
-            return new HrEvent(EventCategory::of($summary), $summary, $date);
+            $date = $this->dayOf($vevent->DTSTART->getDateTime(), $tz);
+            // DTEND is exclusive for all-day events; default to a single day.
+            $end = isset($vevent->DTEND)
+                ? $this->dayOf($vevent->DTEND->getDateTime(), $tz)
+                : $date->modify('+1 day');
+            // Guard against a malformed feed with DTEND <= DTSTART.
+            if ($end <= $date) {
+                $end = $date->modify('+1 day');
+            }
+            return new HrEvent(EventCategory::of($summary), $summary, $date, $end);
         } catch (\Throwable $e) {
             $this->logger->warning('Gusto iCal Cleaner Upper: could not parse HR event', ['exception' => $e]);
             return null;
         }
+    }
+
+    /**
+     * The master instance of an object (the VEVENT with no RECURRENCE-ID), or the
+     * first VEVENT if there is no plain master.
+     */
+    private function masterEvent(\Sabre\VObject\Document $vobj): ?object {
+        $first = null;
+        foreach ($vobj->select('VEVENT') as $vevent) {
+            $first ??= $vevent;
+            if (!isset($vevent->{'RECURRENCE-ID'})) {
+                return $vevent;
+            }
+        }
+        return $first;
+    }
+
+    /** Midnight of the given moment's date, in the user's timezone. */
+    private function dayOf(\DateTimeInterface $dt, \DateTimeZone $tz): \DateTimeImmutable {
+        return new \DateTimeImmutable($dt->format('Y-m-d'), $tz);
     }
 }

@@ -6,7 +6,7 @@ There's actually no way to remove events (e.g. Gusto "out of office" events) tha
 
 Enable Gusto iCal Cleaner Upper under **Apps**, and it runs automatically on each cron run. Disable it to stop syncing. Uninstall it to remove the split calendars. Your original Gusto calendar will still remain. Be sure you already subscribe to a Gusto feed for Gusto iCal Cleaner Upper to do detect it and actually do anything.
 
-I keep the other "HR" calendar hidden in case I need it, but I mostly never do and those events take up a lot of mental and visual space. In one of my organization of about 40 employees, Gusto iCal Cleaner Upper reduces the number of events I look at each day by more than 80%. As a convenience, Gusto iCal Cleaner Upper provides "Out today" and "Celebrations" widgets for your Nextcloud dashboard.
+I keep the other "HR" calendar hidden in case I need it, but I mostly never do and those events take up a lot of mental and visual space. In one of my organizations of about 40 employees, Gusto iCal Cleaner Upper reduces the number of events I look at each day by more than 80%. As a convenience, Gusto iCal Cleaner Upper provides "Out today" and "Celebrations" widgets for your Nextcloud dashboard.
 
 Note: while the two new, split calendars are technically editable, any changes you make other than renaming them will be lost on each cron run.
 
@@ -14,7 +14,7 @@ Note: while the two new, split calendars are technically editable, any changes y
 
 - Discovers Gusto calendar feeds already in your Nextcloud calendar.
 - Splits each Gusto feed into a main "work" calendar and another "HR" calendar. Once they're created, you can rename them in Nextcloud Calendar as you see fit.
-- Can handle several Gusto iCal feeds at once and creates a pair of new, split calendars (one for work and one for HR miscellany) per Gusto feed.
+- Can handle several Gusto feeds at once, one for your work and one for HR miscellany.
 - Adds two optional dashboard widgets, "Out today" (who is out of office right now) and "Celebrations" (upcoming birthdays, anniversaries, and first work days), both read straight from the other "HR" calendar.
 - Runs on Nextcloud's existing background cron.
 - Writes only what changed on each run so source edits, additions, and deletions propagate.
@@ -31,9 +31,9 @@ Tested with Nextcloud 34 with PHP 8.3.6.
 
 Gusto iCal Cleaner Upper assumes the following:
 
-- Birthdays have the string, `birthday`
-- Work anniversaries have the string, `anniversary`
-- First work days have the string, `'s first day`
+- Birthdays contain the string `birthday`
+- Work anniversaries contain the string `anniversary`
+- First work days contain the string `'s first day`
 - Out of office events are appended `- OOO`
 
 All these go into the other "HR" calendar. Everything else (work shifts, paydays, and sick days / time off) goes into the main "work" calendar.
@@ -113,7 +113,7 @@ Both `interval` and `target_user` are read at run time so changes take effect on
 - For each target user it gathers that user's feeds, combining the webcal subscriptions whose host is `gusto.com` or a subdomain of it with any feeds in `feed_url`, then de-duplicates them.
 - It fetches each feed over HTTPS (rewriting `webcal://` to `https://`) and parses it with the bundled `sabre/vobject` library. A feed is fetched once per run even if several users share it.
 - It classifies every `VEVENT` into the "work" or "HR" bucket, groups them by `UID`, and re-serializes one calendar object per event, carrying through only the `VTIMEZONE` blocks that event actually references (all-day events reference none).
-- For each feed it ensures two calendars, `gusto-<hash>-work` and `gusto-<hash>-hr`, where `<hash>` is derived from the feed URL so feeds never collide. The display names come from the feed's `X-WR-CALNAME`.
+- For each feed it ensures two calendars, `gusto-<hash>-work` and `gusto-<hash>-hr`, where `<hash>` is derived from the feed URL so feeds never collide. The display names come from the feed's `X-WR-CALNAME` when the calendars are first created. If you rename them later in the Calendar app, that name is preserved on every following sync.
 - It delta-syncs each calendar through `CalendarMirror`, creating new objects, updating changed ones, and deleting removed ones. Unchanged objects keep their ETags so clients sync only real differences.
 - It removes managed calendars if the original Gusto feed is no longer present, and prunes leftover change-detection state for calendars that no longer exist.
 
@@ -166,7 +166,7 @@ cd /var/www/nextcloud/apps/gusto_ical_cleaner_upper
 ## TODO
 
 **Morning nudge for HR events.**
-Send a Nextcloud notification each morning for that day's birthdays, anniversaries, and first work days, for example `Today: Gimli's 3-year anniversary` or `Elron's first day`.
+Send a Nextcloud notification each morning for that day's birthdays, anniversaries, and first work days, for example `Today: Gimli's 3-year anniversary` or `Elrond's first day`.
 
 ## License
 

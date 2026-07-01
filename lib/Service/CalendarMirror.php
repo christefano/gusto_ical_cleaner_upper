@@ -8,11 +8,11 @@ use OCA\DAV\CalDAV\CalDavBackend;
 use OCA\GustoIcalCleanerUpper\AppInfo\Application;
 use OCP\IConfig;
 use Psr\Log\LoggerInterface;
-use Sabre\DAV\PropPatch;
 
 /**
- * Owns all CalDAV writes: creating and renaming managed calendars, delta-syncing
- * their objects, removing calendars whose feed is gone, and cleaning up state.
+ * Owns all CalDAV writes: creating managed calendars, delta-syncing their
+ * objects, removing calendars whose feed is gone, and cleaning up state. Display
+ * names are set only at creation, so user renames are preserved.
  *
  * Managed calendars use URIs of the form "gusto-<8 hex>-work" or "gusto-<8 hex>-hr".
  */
@@ -27,23 +27,21 @@ class CalendarMirror {
     }
 
     /**
-     * Ensure a calendar with this URI exists for the principal and carries the
-     * given display name. Returns its id, or null if it can't be created.
+     * Ensure a calendar with this URI exists for the principal. The display name
+     * is set only when the calendar is first created, so a name the user later
+     * customizes in the Calendar app is preserved across syncs. Returns its id,
+     * or null if it can't be created.
      */
     public function ensureCalendar(string $principal, string $uri, string $name, string $color = ''): ?int {
         $existing = $this->calDavBackend->getCalendarByUri($principal, $uri);
         if ($existing !== null) {
-            $id = (int)$existing['id'];
-            if ((string)($existing['{DAV:}displayname'] ?? '') !== $name) {
-                $this->updateDisplayName($id, $name);
-            }
-            return $id;
+            return (int)$existing['id'];
         }
         try {
             $properties = ['{DAV:}displayname' => $name];
-            if ($color !== '') {
-                // Only set a color when one is configured; otherwise let
-                // Nextcloud assign its own default.
+            if (preg_match('/^#[0-9a-fA-F]{6}$/', $color) === 1) {
+                // Only set a color when a valid hex one is configured; otherwise
+                // let Nextcloud assign its own default.
                 $properties['{http://apple.com/ns/ical/}calendar-color'] = $color;
             }
             return $this->calDavBackend->createCalendar($principal, $uri, $properties);
@@ -169,16 +167,6 @@ class CalendarMirror {
                 $this->config->deleteAppValue(Application::APP_ID, $key);
                 $this->logger->info('Gusto iCal Cleaner Upper: pruned hash map for deleted calendar', ['calendarId' => $calendarId]);
             }
-        }
-    }
-
-    private function updateDisplayName(int $calendarId, string $name): void {
-        try {
-            $propPatch = new PropPatch(['{DAV:}displayname' => $name]);
-            $this->calDavBackend->updateCalendar($calendarId, $propPatch);
-            $propPatch->commit();
-        } catch (\Throwable $e) {
-            $this->logger->warning('Gusto iCal Cleaner Upper: could not update calendar name', ['exception' => $e]);
         }
     }
 }
