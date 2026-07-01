@@ -14,7 +14,7 @@ Note: while the two new, split calendars are technically editable, any changes y
 
 - Discovers Gusto calendar feeds already in your Nextcloud calendar.
 - Splits each Gusto feed into a main "work" calendar and another "HR" calendar. Once they're created, you can rename them in Nextcloud Calendar as you see fit.
-- Can handle several Gusto feeds at once, one for your work and one for HR miscellany.
+- Can handle several Gusto iCal feeds at once and creates a pair of new, split calendars (one for work and one for HR miscellany) per Gusto feed.
 - Adds two optional dashboard widgets, "Out today" (who is out of office right now) and "Celebrations" (upcoming birthdays, anniversaries, and first work days), both read straight from the other "HR" calendar.
 - Runs on Nextcloud's existing background cron.
 - Writes only what changed on each run so source edits, additions, and deletions propagate.
