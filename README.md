@@ -1,6 +1,6 @@
 # Gusto iCal Cleaner Upper
 
-A Nextcloud app that splits one or more Gusto calendar feeds into two: a main "work" calendar with the things you care about (work shifts, paydays, and sick days / time off), and an "other" calendar with the rest (birthdays, work anniversaries, first work days, and out of office events) that you can hide.
+A Nextcloud app that splits one or more Gusto calendar feeds into two calendars: a main "work" calendar with the things you care about (work shifts, paydays, and sick days / time off), and an "HR" calendar with the rest (birthdays, work anniversaries, first work days, and out of office events) that you can hide.
 
 There's actually no way to remove events (e.g. Gusto "out of office" events) that are in a feed you don't control, and Gusto iCal Cleaner Upper sits between the Gusto source feeds and your Nextcloud calendars. On cron it fetches each feed, classifies the events using the assumptions listed below, and splits them into separate calendars. 
 
